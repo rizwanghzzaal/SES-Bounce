@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Cloudwatch alarms for SES Bounce and Complaint rates"
+
+Parameters:
+  CloudWatchBounceRateHighThreshold:
+    ConstraintDescription: Must be a valid integer
+    Default: '0.05'
+    Description: The value against which Bounce Rate is compared
+    Type: String
+  CloudWatchComplaintRateHighThreshold:
+    ConstraintDescription: Must be a valid integer
+    Default: '0.001'
+    Description: The value against which Bounce Rate is compared
+    Type: String
+  CloudWatchHighOperator:
+    AllowedValues:
+      - 'GreaterThanOrEqualToThreshold'
+      - 'GreaterThanThreshold'
+      - 'LessThanThreshold'
+      - 'LessThanOrEqualToThreshold'
+    Default: 'GreaterThanOrEqualToThreshold'
+    Description: Math operator used by CloudWatch for alarms and triggers
+    Type: String
+  CloudWatchHighPeriod:
+    AllowedPattern: ([0-9]+)
+    Default: '60'
+    Description: Time the specified statistic is applied. Must be in seconds that is also a multiple of 60
+    Type: String
+  CloudWatchHighEvaluations:
+    AllowedPattern: ([0-9]+)
+    Default: '1'
+    Description: The number of periods over which data is compared to the specified threshold
+    Type: String
+  DevOpsSNSTopicName:
+    Description: SNS Topic Name
+    Type: String  
+    Default: "SES-Alert"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: 'Monitoring and Notification Configuration'
+      Parameters:
+        - CloudWatchBounceRateHighThreshold
+        - CloudWatchComplaintRateHighThreshold
+        - CloudWatchHighOperator
+        - CloudWatchHighPeriod
+        - CloudWatchHighEvaluations
+        - DevOpsSNSTopicName
+    ParameterLabels:
+      CloudWatchBounceRateHighThreshold:
+        default: Bounce Rate High Threshold
+      CloudWatchHighOperator:
+        default: Threshold Operator
+      CloudWatchHighPeriod:
+        default: High Period
+      CloudWatchHighEvaluations:
+        default: Evaluation
+      CloudWatchComplaintRateHighThreshold:
+        default: Complaint Rate High Threshold
+      DevOpsSNSTopicName:
+        default: devops alerts topic
+
+
+
+Resources:
+
+  # Bounce Rate high alarm for the SES
+  SESBounceRateHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !ImportValue  '01-SNS-Topic-SNSTopic'
+      AlarmDescription: !Sub Bounce Rate Alarm ${CloudWatchHighOperator} ${CloudWatchBounceRateHighThreshold} for ${CloudWatchHighPeriod} seconds ${CloudWatchHighEvaluations} times.
+      ComparisonOperator: !Ref 'CloudWatchHighOperator'
+      EvaluationPeriods: !Ref 'CloudWatchHighEvaluations'
+      MetricName: Reputation.BounceRate
+      Namespace: AWS/SES
+      OKActions:
+        - !ImportValue  '01-SNS-Topic-SNSTopic'
+      Period: !Ref 'CloudWatchHighPeriod'
+      Statistic: Average
+      Threshold: !Ref 'CloudWatchBounceRateHighThreshold'
+      TreatMissingData: ignore 
+
+  # Complaint Rate high alarm for the SES
+  SESComplaintRateHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !ImportValue  '01-SNS-Topic-SNSTopic'
+      AlarmDescription: !Sub Complaint Rate Alarm ${CloudWatchHighOperator} ${CloudWatchComplaintRateHighThreshold} for ${CloudWatchHighPeriod} seconds ${CloudWatchHighEvaluations} times.
+      ComparisonOperator: !Ref 'CloudWatchHighOperator'
+      EvaluationPeriods: !Ref 'CloudWatchHighEvaluations'
+      MetricName: Reputation.ComplaintRate
+      Namespace: AWS/SES
+      OKActions:
+        - !ImportValue  '01-SNS-Topic-SNSTopic'
+      Period: !Ref 'CloudWatchHighPeriod'
+      Statistic: Average
+      Threshold: !Ref 'CloudWatchComplaintRateHighThreshold'
+      TreatMissingData: ignore 
+  SESBouncesSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - { Protocol: email, Endpoint: "YOUREMAILHERE" }
+  SESComplaintSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - { Protocol: email, Endpoint: "YOUREMAILHERE" }
+  DevOpsSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref DevOpsSNSTopicName
+      Subscription:
+        - { Protocol: https, Endpoint: "https://global.sns-api.chatbot.amazonaws.com" }
+  
+Outputs:
+  SESBouncesSNSTopic:
+    Description: 'SES Bounces SNS Topic.'
+    Value: !Ref 'SESBouncesSNSTopic'
+    Export:
+      Name: !Sub '${AWS::StackName}-SESBouncesSNSTopic'
+  SESComplaintSNSTopic:
+    Description: 'SES Complaint SNS Topic.'
+    Value: !Ref 'SESComplaintSNSTopic'
+    Export:
+      Name: !Sub '${AWS::StackName}-SESComplaintSNSTopic'

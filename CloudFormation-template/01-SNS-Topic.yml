@@ -1,0 +1,23 @@
+# AWS Region: us-east-1
+AWSTemplateFormatVersion: '2010-09-09'
+Description: " SNS Topic."
+
+Parameters:
+  SNSTopicName:
+    Default: 'SES-Notification-SNS-Topic'
+    Description: 'Set SNS Topic Name'
+    Type: String
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - { Protocol: email, Endpoint: "YOUREMAILHERE" }
+
+Outputs:
+  SNSTopic:
+    Description: 'SES-ALARM-SNS-TOPIC'
+    Value: !Ref 'SNSTopic'
+    Export:
+      Name: !Sub '${AWS::StackName}-SNSTopic'
